@@ -1,3 +1,4 @@
+const { json } = require('express');
 const express = require('express');
 const { MongoClient, ObjectId } = require('mongodb');
 const morgan = require('morgan');
@@ -13,16 +14,64 @@ app.use(morgan('dev'));
 async function main() {
     const connection = await client.connect();
     const dbConnect = connection.db(dbName);
-    const collectionConnect = dbConnect.collection('users');
+    const collectionConnectUsers = dbConnect.collection('users');
+    const collectionConnectCars = dbConnect.collection('cars');
 
     app.post('/users', async (req, res) => {
-        await collectionConnect.insertOne(req.body);
+        await collectionConnectUsers.insertOne(req.body);
         res.status(200).end("ok");
     });
 
+
     app.post('/users/many', async (req, res) => {
-        await collectionConnect.insertMany(req.body);
+        await collectionConnectUsers.insertMany(req.body);
         res.status(200).end('ok');
+    });
+
+
+    app.post('/cars', async (req, res) => {
+        const { userId } = req.query;
+        const isObjId = ObjectId.isValid(userId);
+
+        if (!isObjId) {
+            return res.status(400)
+                .json({ error: `"${userId}": invalid user id` });
+        }
+
+        const createCar = req.body;
+        createCar.userId = userId;
+        const idUser = new ObjectId(userId);
+
+        await collectionConnectCars.insertOne(createCar);
+
+        res.status(200).end('ok');
+    });
+
+
+    app.get('/cars/:carId', async (req, res) => {
+        const carId = req.params.carId;
+        const { userId } = req.query;
+        const isObjUserId = ObjectId.isValid(userId);
+        const isObjCarId = ObjectId.isValid(carId);
+
+        if (!isObjUserId) {
+            return res.status(400)
+                .json({ error: `"${userId}": invalid user id` });
+        }
+
+        if (!isObjCarId) {
+            return res.status(400)
+                .json({ error: `"${carId}": invalid car id` });
+        }
+        const objCarId = new ObjectId(carId);
+        const car = await collectionConnectCars.findOne({ _id: objCarId });
+
+        if (!car || car.userId !== userId) {
+            return res.status(400)
+            .json({ error: "no data or you do not have access" })
+        }
+
+        res.json(car);
     });
 
 
@@ -35,7 +84,7 @@ async function main() {
             .json({ error: 'Invalid ObjectId for :userId', derails: `Actual value: "${userId}"` });
 
         const obj = new ObjectId(userId);
-        const user = await collectionConnect.findOne({ _id: obj });
+        const user = await collectionConnectUsers.findOne({ _id: obj });
 
         if (!user) {
             res.json(`user with id: "${userId}" not found`);
@@ -65,7 +114,7 @@ async function main() {
 
     app.get('/users', async (req, res) => {
         const { limit = 5, skip = 0 } = req.query;
-        const users = await collectionConnect.find({})
+        const users = await collectionConnectUsers.find({})
             .limit(+limit).skip(+skip).toArray();
         res.json(users);
     });
@@ -81,7 +130,7 @@ async function main() {
         const obj = new ObjectId(userId);
         const updateUser = req.body;
 
-        const { modifiedCount: modified, matchedCount: matched } = await collectionConnect.updateOne(
+        const { modifiedCount: modified, matchedCount: matched } = await collectionConnectUsers.updateOne(
             { _id: obj }, { $set: updateUser });
 
         if (matched === 0) {
@@ -106,7 +155,7 @@ async function main() {
         }
 
         const obj = new ObjectId(userId);
-        const { deletedCount: deleted } = await collectionConnect.
+        const { deletedCount: deleted } = await collectionConnectUsers.
             deleteOne({ _id: obj });
 
         if (deleted === 0) {
