@@ -3,6 +3,8 @@ const express = require('express');
 const { MongoClient, ObjectId } = require('mongodb');
 const morgan = require('morgan');
 
+const carsRouter = require('./routes/cars');
+
 const client = new MongoClient('mongodb://localhost:27017');
 const dbName = 'first-mongodb';
 const app = express();
@@ -17,6 +19,8 @@ async function main() {
     const collectionConnectUsers = dbConnect.collection('users');
     const collectionConnectCars = dbConnect.collection('cars');
 
+    app.use('/cars', carsRouter(collectionConnectCars));
+
     app.post('/users', async (req, res) => {
         await collectionConnectUsers.insertOne(req.body);
         res.status(200).end("ok");
@@ -27,53 +31,6 @@ async function main() {
         await collectionConnectUsers.insertMany(req.body);
         res.status(200).end('ok');
     });
-
-
-    app.post('/cars', async (req, res) => {
-        const { userId } = req.query;
-        const isObjId = ObjectId.isValid(userId);
-
-        if (!isObjId) {
-            return res.status(400)
-                .json({ error: `"${userId}": invalid user id` });
-        }
-
-        const createCar = req.body;
-        createCar.userId = userId;
-        const idUser = new ObjectId(userId);
-
-        await collectionConnectCars.insertOne(createCar);
-
-        res.status(200).end('ok');
-    });
-
-
-    app.get('/cars/:carId', async (req, res) => {
-        const carId = req.params.carId;
-        const { userId } = req.query;
-        const isObjUserId = ObjectId.isValid(userId);
-        const isObjCarId = ObjectId.isValid(carId);
-
-        if (!isObjUserId) {
-            return res.status(400)
-                .json({ error: `"${userId}": invalid user id` });
-        }
-
-        if (!isObjCarId) {
-            return res.status(400)
-                .json({ error: `"${carId}": invalid car id` });
-        }
-        const objCarId = new ObjectId(carId);
-        const car = await collectionConnectCars.findOne({ _id: objCarId });
-
-        if (!car || car.userId !== userId) {
-            return res.status(400)
-            .json({ error: "no data or you do not have access" })
-        }
-
-        res.json(car);
-    });
-
 
     app.get('/users/:id', async (req, res) => {
         const userId = req.params.id;
@@ -119,6 +76,7 @@ async function main() {
         res.json(users);
     });
 
+
     app.put('/users/:id', async (req, res) => {
         const userId = req.params.id;
         const isObjId = ObjectId.isValid(userId);
@@ -144,6 +102,8 @@ async function main() {
 
         res.status(200).end('ok');
     });
+
+
 
     app.delete('/users/:id', async (req, res) => {
         const userId = req.params.id;
