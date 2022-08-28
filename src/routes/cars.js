@@ -2,6 +2,24 @@ const router = require('express').Router();
 const { ObjectId } = require('mongodb');
 
 function getCarRouter(collectionConnectCars) {
+    router.post('/', async (req, res) => {
+        const { userId } = req.query;
+        const isObjId = ObjectId.isValid(userId);
+
+        if (!isObjId) {
+            return res.status(400)
+                .json({ error: `"${userId}": invalid user id` });
+        }
+
+        const createCar = req.body;
+        createCar.userId = userId;
+
+        await collectionConnectCars.insertOne(createCar);
+        const car = await collectionConnectCars.findOne({ userId });
+
+        res.status(200).json(car);
+    });
+
     router.get('/:carId', async (req, res) => {
         const carId = req.params.carId;
         const { userId } = req.query;
@@ -58,7 +76,9 @@ function getCarRouter(collectionConnectCars) {
             { _id: objCarId }, { $set: updateCar }
         );
 
-        res.end('ok');
+        const carUp = await collectionConnectCars.findOne({ _id: objCarId });
+
+        res.json(carUp);
     });
 
     router.delete('/:carId', async (req, res) => {
@@ -84,33 +104,11 @@ function getCarRouter(collectionConnectCars) {
 
         await collectionConnectCars.deleteOne({ _id: objCarId });
 
-        res.status(204).end('ok');
-    });
-
-    router.post('/', async (req, res) => {
-        const { userId } = req.query;
-        const isObjId = ObjectId.isValid(userId);
-
-        if (!isObjId) {
-            return res.status(400)
-                .json({ error: `"${userId}": invalid user id` });
-        }
-
-        const createCar = req.body;
-        createCar.userId = userId;
-        const idUser = new ObjectId(userId);
-
-        await collectionConnectCars.insertOne(createCar);
-
-        res.status(200).end('ok');
+        res.status(204).end();
     });
 
     return router;
 }
-
-
-
-
 
 
 module.exports = getCarRouter;
